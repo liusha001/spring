@@ -1,0 +1,15 @@
+server:
+  port: 8080
+
+spring:
+  cache:
+#    type: redis
+    redis:
+      key-prefix: "myprefix01::"
+      use-key-prefix: false
+      time-to-live: 600s
+
+  redis:
+    host: localhost
+#    host: 192.168.1.105
+    port: 6379

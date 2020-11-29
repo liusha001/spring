@@ -1,4 +1,4 @@
-package org.liusha.redis;
+package redis;
 
 /**
  * @author liusha
