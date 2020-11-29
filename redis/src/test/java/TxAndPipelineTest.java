@@ -1,13 +1,18 @@
-import org.demo.springbootRedis.RedisApp;
-import org.demo.springbootRedis.Student;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.liusha.redis.RedisApp;
+import org.liusha.redis.Student;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataAccessException;
-import org.springframework.data.redis.core.*;
+import org.springframework.data.redis.core.HashOperations;
+import org.springframework.data.redis.core.RedisOperations;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.test.context.junit4.SpringRunner;
 
+import java.sql.SQLOutput;
 import java.util.List;
 
 /**
@@ -24,7 +29,7 @@ public class TxAndPipelineTest {
 
     @Test
     public void txTest(){
-        String key = "class-3";
+        String key = "class-tx";
         Student student1 = new Student(1, "xiaoming", 80);
         Student student2 = new Student(1, "xiaohong", 85);
         Student student3 = new Student(1, "xiaowang", 90);
@@ -39,15 +44,14 @@ public class TxAndPipelineTest {
         List<Object> result = redisTemplate.exec();
         if(result.isEmpty()){
             System.out.println("error: redis watch error");
+            System.out.println(hashOperations.keys(key));
         }else{
             System.out.println("success: " + result);
         }
-        Student res = hashOperations.get(key, "xiaohong");
-        System.out.println(res);
     }
     @Test
     public void pipeline(){
-        String key = "class-3";
+        String key = "class-pipeline";
         Student student1 = new Student(1, "xiaoming", 80);
         Student student2 = new Student(1, "xiaohong", 85);
         Student student3 = new Student(1, "xiaowang", 90);

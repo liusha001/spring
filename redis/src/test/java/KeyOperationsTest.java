@@ -1,8 +1,8 @@
-import io.lettuce.core.RedisException;
-import org.demo.springbootRedis.RedisApp;
-import org.demo.springbootRedis.Student;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.liusha.redis.RedisApp;
+import org.liusha.redis.Student;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.*;

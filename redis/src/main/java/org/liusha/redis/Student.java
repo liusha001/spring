@@ -1,4 +1,4 @@
-package org.demo.springbootRedis;
+package org.liusha.redis;
 
 /**
  * @author chenrf

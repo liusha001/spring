@@ -1,52 +1,38 @@
-package org.demo.springbootRedis;
+package org.liusha.redis;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.lettuce.core.ReadFrom;
-import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.data.redis.RedisProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
-import org.springframework.data.redis.cache.RedisCacheConfiguration;
-import org.springframework.data.redis.cache.RedisCacheManager;
-import org.springframework.data.redis.cache.RedisCacheWriter;
-import org.springframework.data.redis.connection.*;
+import org.springframework.data.redis.connection.RedisSentinelConfiguration;
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
+import org.springframework.data.redis.connection.RedisStaticMasterReplicaConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
-import org.springframework.data.redis.connection.lettuce.LettucePoolingClientConfiguration;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializer;
-import org.springframework.data.redis.serializer.StringRedisSerializer;
-import org.springframework.transaction.annotation.EnableTransactionManagement;
 
-import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
-
-import static java.util.Collections.singletonMap;
-import static org.springframework.data.redis.cache.RedisCacheConfiguration.defaultCacheConfig;
 
 
 /**
  * @author chenrf
  * @version 1.0
- * @date 2020/11/15 14:25
+ * @date 2020/11/29 12:20
  */
 @Configuration
-@EnableTransactionManagement//试过了没有这也可以
 public class RedisConfig {
     @Autowired
     RedisProperties redisProperties;
 
-    /**
-     * 配置单机版的redis服务器
-     * @return
-     */
     @Primary
     @Bean(name="singleRedisConnectionFactory")
     public LettuceConnectionFactory singleRedisConnectionFactory() {
@@ -57,11 +43,6 @@ public class RedisConfig {
 //        config.setPassword(RedisPassword.of(redisProperties.getPassword()));
         return new LettuceConnectionFactory(config);
     }
-    /**
-     * 主写入，备读取，但是没有故障切换功能
-     * RedisStandaloneConfiguration：适用于单节点
-     * @return
-     */
     @Bean(name="singleMasterReplicaRedisConnectionFactory")
     public LettuceConnectionFactory upReplicaRedisConnectionFactory() {
         LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
@@ -70,7 +51,6 @@ public class RedisConfig {
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration(redisProperties.getHost(), redisProperties.getPort());
         return new LettuceConnectionFactory(config, clientConfig);
     }
-
     /**
      * 主写入，备读取，但是没有故障切换功能
      * 对于通过INFO命令发布的非公共的地址的环境（比如，使用AWS)，使用RedisStaticMasterReplicaConfiguration，而不是RedisStandaloneConfiguration
@@ -92,10 +72,7 @@ public class RedisConfig {
     @Bean(name="redisSentinelConfiguration")
     public LettuceConnectionFactory lettuceConnectionFactory() {
         // 这个需要配置的是sentinel的端口
-        Set<String> setRedisNode = new HashSet<>();
-        setRedisNode.add("192.168.1.102:16380");
-        setRedisNode.add("192.168.1.102:26380");
-        setRedisNode.add("192.168.1.104:36380");
+        Set<String> setRedisNode = new HashSet<>(redisProperties.getSentinel().getNodes());
         RedisSentinelConfiguration sentinelConfig = new RedisSentinelConfiguration("mymaster", setRedisNode);
         return new LettuceConnectionFactory(sentinelConfig);
     }
@@ -127,63 +104,5 @@ public class RedisConfig {
         redisTemplate.setEnableTransactionSupport(true);
         return redisTemplate;
     }
-
-    @Bean
-    public LettuceConnectionFactory lettuceConnectionFactory(GenericObjectPoolConfig genericObjectPoolConfig) {
-        // 单机版配置
-        RedisStandaloneConfiguration serverConfig = new RedisStandaloneConfiguration();
-        serverConfig.setHostName(redisProperties.getHost());
-        serverConfig.setPort(redisProperties.getPort());
-        // 集群版配置
-//        RedisClusterConfiguration redisClusterConfiguration = new RedisClusterConfiguration();
-//        String[] serverArray = clusterNodes.split(",");
-//        Set<RedisNode> nodes = new HashSet<RedisNode>();
-//        for (String ipPort : serverArray) {
-//            String[] ipAndPort = ipPort.split(":");
-//            nodes.add(new RedisNode(ipAndPort[0].trim(), Integer.valueOf(ipAndPort[1])));
-//        }
-//        redisClusterConfiguration.setPassword(RedisPassword.of(password));
-//        redisClusterConfiguration.setClusterNodes(nodes);
-//        redisClusterConfiguration.setMaxRedirects(maxRedirects);
-        LettuceClientConfiguration clientConfig = LettucePoolingClientConfiguration.builder()
-                .commandTimeout(redisProperties.getTimeout())
-                .poolConfig(genericObjectPoolConfig)
-                .build();
-        if (redisProperties.isSsl()){
-            clientConfig.isUseSsl();
-        }
-        LettuceConnectionFactory factory = new LettuceConnectionFactory(serverConfig, clientConfig);
-        return factory;
-    }
-
-    @Bean
-    public GenericObjectPoolConfig genericObjectPoolConfig() {
-        RedisProperties.Pool pool = redisProperties.getLettuce().getPool();
-        GenericObjectPoolConfig genericObjectPoolConfig = new GenericObjectPoolConfig();
-        genericObjectPoolConfig.setMaxIdle(pool.getMaxIdle());
-        genericObjectPoolConfig.setMinIdle(pool.getMinIdle());
-        genericObjectPoolConfig.setMaxTotal(pool.getMaxActive());
-        genericObjectPoolConfig.setMaxWaitMillis(pool.getMaxWait().toMillis());
-        return genericObjectPoolConfig;
-    }
-    @Bean
-    public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
-        //缓存参数配置
-        RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
-//                .prefixKeysWith()//这里可以配置key前缀
-//                .computePrefixWith()//带计算功能的key前缀比如(cacheName -> "redis" + cacheName)
-                .entryTtl(Duration.ofSeconds(1))
-                .disableCachingNullValues()
-//                .serializeKeysWith() //序列化key
-//                .serializeValuesWith() //系列化value
-                ;
-        //缓存管理器
-//        RedisCacheManager cm = RedisCacheManager.builder(connectionFactory)//创建没有多是manager
-        RedisCacheManager cm = RedisCacheManager.builder(RedisCacheWriter.lockingRedisCacheWriter(connectionFactory))//创建带有写锁的manager
-                .cacheDefaults(defaultCacheConfig())
-                .withInitialCacheConfigurations(singletonMap("cache001", config))//差异化配置不同的cache
-                .transactionAware()
-                .build();
-        return cm;
-    }
 }
+
