@@ -3,7 +3,7 @@ server:
 
 spring:
   cache:
-#    type: redis
+    type: redis
     redis:
       key-prefix: "myprefix01::"
       use-key-prefix: false
